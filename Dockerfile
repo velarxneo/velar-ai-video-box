@@ -1,90 +1,78 @@
-FROM pytorch/pytorch:2.9.1-cuda12.8-cudnn9-runtime
+FROM ghcr.io/lecode-official/comfyui-docker:latest
 
-ENV DEBIAN_FRONTEND=noninteractive \
-    PYTHONUNBUFFERED=1 \
-    PIP_NO_CACHE_DIR=1 \
-    COMFYUI_PATH=/opt/comfyui
+USER root
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
+# ----------------------------------------------------
+# System packages
+# ----------------------------------------------------
+RUN apt-get update && apt-get install -y \
     git \
-    git-lfs \
-    ffmpeg \
-    curl \
     wget \
-    ca-certificates \
-    libgl1 \
-    libglib2.0-0 \
-    libsm6 \
-    libxext6 \
-    libxrender1 \
-    && rm -rf /var/lib/apt/lists/*
+    curl \
+    ffmpeg \
+    unzip \
+    build-essential \
+ && rm -rf /var/lib/apt/lists/*
 
-RUN git lfs install
+# ----------------------------------------------------
+# Python packages
+# ----------------------------------------------------
+RUN pip install --no-cache-dir \
+    onnx \
+    onnxruntime-gpu \
+    imageio \
+    imageio-ffmpeg \
+    moviepy \
+    opencv-python-headless \
+    accelerate \
+    transformers \
+    sentencepiece \
+    protobuf \
+    safetensors \
+    einops \
+    xformers
 
-WORKDIR /opt
+# ----------------------------------------------------
+# Custom Nodes
+# ----------------------------------------------------
+WORKDIR /opt/comfyui/custom_nodes
 
-# Install ComfyUI
-RUN git clone --depth 1 https://github.com/Comfy-Org/ComfyUI.git comfyui
+RUN git clone https://github.com/ltdrdata/ComfyUI-Manager.git
+
+RUN git clone https://github.com/Kosinkadink/ComfyUI-VideoHelperSuite.git
+
+RUN git clone https://github.com/cubiq/ComfyUI_Impact_Pack.git
+
+RUN git clone https://github.com/city96/ComfyUI-GGUF.git
+
+RUN git clone https://github.com/kijai/ComfyUI-WanVideoWrapper.git
+
+RUN git clone https://github.com/Kosinkadink/ComfyUI-Advanced-ControlNet.git
+
+# ----------------------------------------------------
+# Install node requirements
+# ----------------------------------------------------
+RUN find /opt/comfyui/custom_nodes -name requirements.txt \
+    -exec pip install --no-cache-dir -r {} \;
+
+# ----------------------------------------------------
+# Create model folders
+# ----------------------------------------------------
+RUN mkdir -p \
+    /opt/comfyui/models/checkpoints \
+    /opt/comfyui/models/unet \
+    /opt/comfyui/models/vae \
+    /opt/comfyui/models/controlnet \
+    /opt/comfyui/models/loras \
+    /opt/comfyui/models/clip \
+    /opt/comfyui/models/text_encoders \
+    /opt/comfyui/models/upscale_models \
+    /opt/comfyui/models/clip_vision \
+    /opt/comfyui/models/diffusion_models \
+    /opt/comfyui/models/vae_approx
 
 WORKDIR /opt/comfyui
 
-RUN pip install --upgrade pip setuptools wheel \
-    && pip install -r requirements.txt
-
-# ComfyUI Manager
-RUN git clone --depth 1 \
-    https://github.com/Comfy-Org/ComfyUI-Manager.git \
-    custom_nodes/ComfyUI-Manager
-
-# Video import/export nodes
-RUN git clone --depth 1 \
-    https://github.com/Kosinkadink/ComfyUI-VideoHelperSuite.git \
-    custom_nodes/ComfyUI-VideoHelperSuite
-
-# GGUF model support
-RUN git clone --depth 1 \
-    https://github.com/city96/ComfyUI-GGUF.git \
-    custom_nodes/ComfyUI-GGUF
-
-# Image detailer and detector nodes
-RUN git clone --depth 1 \
-    https://github.com/ltdrdata/ComfyUI-Impact-Pack.git \
-    custom_nodes/ComfyUI-Impact-Pack
-
-RUN git clone --depth 1 \
-    https://github.com/ltdrdata/ComfyUI-Impact-Subpack.git \
-    custom_nodes/ComfyUI-Impact-Subpack
-
-# WAN video workflow nodes
-RUN git clone --depth 1 \
-    https://github.com/kijai/ComfyUI-WanVideoWrapper.git \
-    custom_nodes/ComfyUI-WanVideoWrapper
-
-# Install custom-node Python requirements when provided
-RUN set -eux; \
-    for requirements in custom_nodes/*/requirements.txt; do \
-        if [ -f "$requirements" ]; then \
-            echo "Installing $requirements"; \
-            pip install -r "$requirements"; \
-        fi; \
-    done
-
-# Create common model and output directories
-RUN mkdir -p \
-    models/checkpoints \
-    models/diffusion_models \
-    models/unet \
-    models/text_encoders \
-    models/clip \
-    models/vae \
-    models/loras \
-    models/controlnet \
-    models/upscale_models \
-    models/ultralytics \
-    input \
-    output \
-    user/default/workflows
-
 EXPOSE 8188
 
-CMD ["python", "/opt/comfyui/main.py", "--listen", "::", "--port", "8188"]
+CMD ["python","main.py","--listen","::","--port","8188"]
