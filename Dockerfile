@@ -5,85 +5,133 @@ ENV DEBIAN_FRONTEND=noninteractive \
     PIP_NO_CACHE_DIR=1 \
     COMFYUI_PATH=/opt/comfyui
 
+# ----------------------------------------------------
+# System packages
+# ----------------------------------------------------
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
     git-lfs \
     ffmpeg \
     curl \
     wget \
+    unzip \
     ca-certificates \
+    build-essential \
     libgl1 \
     libglib2.0-0 \
     libsm6 \
     libxext6 \
     libxrender1 \
+    && git lfs install \
     && rm -rf /var/lib/apt/lists/*
 
-RUN git lfs install
-
+# ----------------------------------------------------
+# Install ComfyUI
+# ----------------------------------------------------
 WORKDIR /opt
 
-# Install ComfyUI
-RUN git clone --depth 1 https://github.com/Comfy-Org/ComfyUI.git comfyui
+RUN git clone --depth 1 \
+    https://github.com/Comfy-Org/ComfyUI.git \
+    comfyui
 
 WORKDIR /opt/comfyui
 
-RUN pip install --upgrade pip setuptools wheel \
-    && pip install -r requirements.txt
+RUN python -m pip install --upgrade pip setuptools wheel \
+    && pip install --no-cache-dir -r requirements.txt
+
+# ----------------------------------------------------
+# Install core Python packages
+# ----------------------------------------------------
+# Do not install xformers, SageAttention or Flash Attention yet.
+# These need careful version matching with PyTorch and CUDA.
+RUN pip install --no-cache-dir \
+    onnx \
+    onnxruntime-gpu \
+    accelerate \
+    transformers \
+    sentencepiece \
+    protobuf \
+    safetensors \
+    einops \
+    imageio \
+    imageio-ffmpeg \
+    moviepy \
+    opencv-python-headless
+
+# ----------------------------------------------------
+# Install custom nodes
+# ----------------------------------------------------
+WORKDIR /opt/comfyui/custom_nodes
 
 # ComfyUI Manager
 RUN git clone --depth 1 \
     https://github.com/Comfy-Org/ComfyUI-Manager.git \
-    custom_nodes/ComfyUI-Manager
+    ComfyUI-Manager
 
-# Video import/export nodes
+# Video loading and export
 RUN git clone --depth 1 \
     https://github.com/Kosinkadink/ComfyUI-VideoHelperSuite.git \
-    custom_nodes/ComfyUI-VideoHelperSuite
+    ComfyUI-VideoHelperSuite
 
 # GGUF model support
 RUN git clone --depth 1 \
     https://github.com/city96/ComfyUI-GGUF.git \
-    custom_nodes/ComfyUI-GGUF
+    ComfyUI-GGUF
 
-# Image detailer and detector nodes
+# FaceDetailer, detectors and image enhancement
 RUN git clone --depth 1 \
     https://github.com/ltdrdata/ComfyUI-Impact-Pack.git \
-    custom_nodes/ComfyUI-Impact-Pack
+    ComfyUI-Impact-Pack
 
 RUN git clone --depth 1 \
     https://github.com/ltdrdata/ComfyUI-Impact-Subpack.git \
-    custom_nodes/ComfyUI-Impact-Subpack
+    ComfyUI-Impact-Subpack
 
-# WAN video workflow nodes
+# WAN video support
 RUN git clone --depth 1 \
     https://github.com/kijai/ComfyUI-WanVideoWrapper.git \
-    custom_nodes/ComfyUI-WanVideoWrapper
+    ComfyUI-WanVideoWrapper
 
-# Install custom-node Python requirements when provided
+# Advanced ControlNet scheduling and masking
+RUN git clone --depth 1 \
+    https://github.com/Kosinkadink/ComfyUI-Advanced-ControlNet.git \
+    ComfyUI-Advanced-ControlNet
+
+# ----------------------------------------------------
+# Install custom-node requirements
+# ----------------------------------------------------
 RUN set -eux; \
-    for requirements in custom_nodes/*/requirements.txt; do \
-        if [ -f "$requirements" ]; then \
-            echo "Installing $requirements"; \
-            pip install -r "$requirements"; \
+    for requirements_file in /opt/comfyui/custom_nodes/*/requirements.txt; do \
+        if [ -f "$requirements_file" ]; then \
+            echo "Installing: $requirements_file"; \
+            pip install --no-cache-dir -r "$requirements_file"; \
         fi; \
     done
 
-# Create common model and output directories
+# ----------------------------------------------------
+# Create model, workflow and output folders
+# ----------------------------------------------------
 RUN mkdir -p \
-    models/checkpoints \
-    models/diffusion_models \
-    models/unet \
-    models/text_encoders \
-    models/clip \
-    models/vae \
-    models/loras \
-    models/controlnet \
-    models/upscale_models \
-    models/ultralytics \
-    input \
-    output \
-    user/default/workflows
+    /opt/comfyui/models/checkpoints \
+    /opt/comfyui/models/diffusion_models \
+    /opt/comfyui/models/unet \
+    /opt/comfyui/models/vae \
+    /opt/comfyui/models/vae_approx \
+    /opt/comfyui/models/loras \
+    /opt/comfyui/models/controlnet \
+    /opt/comfyui/models/clip \
+    /opt/comfyui/models/clip_vision \
+    /opt/comfyui/models/text_encoders \
+    /opt/comfyui/models/upscale_models \
+    /opt/comfyui/models/ultralytics \
+    /opt/comfyui/input \
+    /opt/comfyui/output \
+    /opt/comfyui/user/default/workflows
+
+# ----------------------------------------------------
+# Start ComfyUI for Salad's IPv6 Container Gateway
+# ----------------------------------------------------
+WORKDIR /opt/comfyui
 
 EXPOSE 8188
 
