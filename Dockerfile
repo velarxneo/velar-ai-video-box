@@ -2,7 +2,10 @@ FROM pytorch/pytorch:2.9.1-cuda12.8-cudnn9-runtime
 
 ENV DEBIAN_FRONTEND=noninteractive \
     PYTHONUNBUFFERED=1 \
-    PIP_NO_CACHE_DIR=1
+    PIP_NO_CACHE_DIR=1 \
+    COMFYUI_ROOT=/opt/comfyui \
+    VELAR_MANIFEST_DIR=/opt/velar/manifests \
+    VELAR_NODES_CONFIG=/opt/velar/custom_nodes.json
 
 # ----------------------------------------------------
 # System packages
@@ -54,20 +57,14 @@ RUN pip install --no-cache-dir \
     moviepy \
     opencv-python-headless
 
-# ----------------------------------------------------
-# Install ComfyUI Manager ONLY
-# ----------------------------------------------------
-WORKDIR /opt/comfyui/custom_nodes
+# Bootstrap dependencies and configuration
+COPY requirements-bootstrap.txt /tmp/requirements-bootstrap.txt
+RUN pip install --no-cache-dir -r /tmp/requirements-bootstrap.txt
 
-RUN git clone --depth 1 \
-    https://github.com/Comfy-Org/ComfyUI-Manager.git \
-    ComfyUI-Manager
-
-# Install Manager requirements
-RUN if [ -f /opt/comfyui/custom_nodes/ComfyUI-Manager/requirements.txt ]; then \
-    pip install --no-cache-dir \
-    -r /opt/comfyui/custom_nodes/ComfyUI-Manager/requirements.txt; \
-    fi
+WORKDIR /opt/velar
+COPY --chmod=755 scripts/ ./scripts/
+COPY manifests/ ./manifests/
+COPY custom_nodes.json ./
 
 # ----------------------------------------------------
 # Create folders
@@ -88,8 +85,11 @@ RUN mkdir -p \
 # ----------------------------------------------------
 # Launch
 # ----------------------------------------------------
-WORKDIR /opt/comfyui
+WORKDIR /opt/velar
 
 EXPOSE 8188
 
-CMD ["python", "main.py", "--listen", "::", "--port", "8188"]
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=5 \
+    CMD curl --noproxy "*" --globoff --fail --silent "http://[::1]:${COMFYUI_PORT:-8188}/" > /dev/null || exit 1
+
+CMD ["/opt/velar/scripts/start.sh"]
