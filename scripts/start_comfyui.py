@@ -20,7 +20,7 @@ def main() -> int:
     if not main_script.is_file():
         LOGGER.error("ComfyUI entry point not found: %s", main_script)
         return 1
-    host = os.getenv("COMFYUI_LISTEN", "0.0.0.0")
+    host = os.getenv("COMFYUI_LISTEN", "::")
     port = os.getenv("COMFYUI_PORT", "8188")
     extra_args = shlex.split(os.getenv("COMFYUI_ARGS", ""))
     command = [sys.executable, str(main_script), "--listen", host, "--port", port, *extra_args]

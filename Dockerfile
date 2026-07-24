@@ -90,6 +90,6 @@ WORKDIR /opt/velar
 EXPOSE 8188
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=5 \
-    CMD curl --fail --silent "http://127.0.0.1:${COMFYUI_PORT:-8188}/" > /dev/null || exit 1
+    CMD curl --noproxy "*" --globoff --fail --silent "http://[::1]:${COMFYUI_PORT:-8188}/" > /dev/null || exit 1
 
 CMD ["/opt/velar/scripts/start.sh"]

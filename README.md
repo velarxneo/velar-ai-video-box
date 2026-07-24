@@ -60,7 +60,7 @@ persistent directories directly at `/opt/comfyui/models` and
 | `VELAR_DOWNLOAD_RETRIES` | `4` | Download attempts |
 | `VELAR_DOWNLOAD_TIMEOUT` | `300` | Per-read timeout in seconds |
 | `VELAR_LOG_LEVEL` | `INFO` | Python log level |
-| `COMFYUI_LISTEN` | `0.0.0.0` | ComfyUI bind address |
+| `COMFYUI_LISTEN` | `::` | ComfyUI bind address (IPv6, required by Salad ingress) |
 | `COMFYUI_PORT` | `8188` | ComfyUI port |
 | `COMFYUI_ARGS` | empty | Additional ComfyUI arguments |
 
