@@ -1,18 +1,12 @@
 # Velar AI Video Box
 
 Velar is a configuration-driven bootstrap layer for ComfyUI. At container
-startup it installs declared custom nodes, installs and verifies declared model
-files, and then launches ComfyUI.
+startup it installs declared custom nodes and then launches ComfyUI. Model
+downloads are run manually so large downloads do not block container startup.
 
 ## Configuration
 
-Model packs live in `manifests/<id>.json`. Select one or more packs with a
-comma-separated environment variable:
-
-```text
-VELAR_MANIFESTS=wan22
-VELAR_MANIFESTS=flux,qwen
-```
+Model packs live in `manifests/<id>.json`.
 
 Adding a pack requires only another manifest; the Python installer contains no
 model-specific URLs. A model entry supports:
@@ -54,7 +48,6 @@ persistent directories directly at `/opt/comfyui/models` and
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
-| `VELAR_MANIFESTS` | `wan22` | Comma-separated model pack IDs |
 | `VELAR_MODELS_DIR` | `/opt/comfyui/models` | Model installation root |
 | `VELAR_CUSTOM_NODES_DIR` | `/opt/comfyui/custom_nodes` | Node installation root |
 | `VELAR_DOWNLOAD_RETRIES` | `4` | Download attempts |
@@ -74,5 +67,15 @@ python scripts/download_model.py wan22
 python scripts/download_model.py --verify-only wan22
 python scripts/start_comfyui.py
 ```
+
+Inside the container, manually install the default model pack with:
+
+```bash
+python /opt/velar/scripts/download_model.py wan22
+```
+
+The downloader resumes an existing `.part` file when the server supports range
+requests. ComfyUI continues running while the terminal download is in progress;
+restart the container after the model installation finishes.
 
 The Docker health check reports ready after ComfyUI responds on its HTTP port.
